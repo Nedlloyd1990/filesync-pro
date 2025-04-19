@@ -206,6 +206,7 @@
                             lastSentMessageId = null;
                             return;
                         }
+                        data.downloadedTime = data.downloadedTime || '-';
                         files.push(data);
                         if (selectedUser === data.from || selectedUser === data.to) {
                             displayFileMessage(data, data.from === currentUsername);
@@ -356,7 +357,8 @@
                     sentTime: new Date().toISOString(),
                     messageId: generateMessageId(),
                     from: currentUsername,
-                    to: selectedUser
+                    to: selectedUser,
+                    downloadedTime: '-'
                 };
                 socket.send(JSON.stringify({
                     type: 'file',
@@ -377,12 +379,12 @@
             row.dataset.messageId = data.messageId;
             const sizeKB = (data.fileSize / 1024).toFixed(2);
             const viewedTime = new Date().toISOString();
-            let downloadedTime = '-';
+            const downloadedTime = data.downloadedTime || '-';
             row.innerHTML = `
                 <td>${data.fileName}</td>
                 <td>${new Date(data.sentTime).toLocaleString()}</td>
                 <td>${new Date(viewedTime).toLocaleString()}</td>
-                <td class="downloaded-time">${downloadedTime}</td>
+                <td class="downloaded-time">${downloadedTime === '-' ? '-' : new Date(downloadedTime).toLocaleString()}</td>
                 <td>${sizeKB} KB</td>
                 <td>
                     <a href="${data.fileContent}" download="${data.fileName}" class="text-blue-600 hover:underline download-link">Download</a>
@@ -395,15 +397,20 @@
                 downloadLink.addEventListener('click', () => {
                     const downloadCell = row.querySelector('.downloaded-time');
                     if (downloadCell) {
-                        downloadedTime = new Date().toISOString();
+                        const downloadedTime = new Date().toISOString();
                         downloadCell.textContent = new Date(downloadedTime).toLocaleString();
-                        socket.send(JSON.stringify({
-                            type: 'downloadNotification',
-                            from: currentUsername,
-                            to: data.from,
-                            messageId: data.messageId,
-                            downloadedTime: downloadedTime
-                        }));
+                        if (socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({
+                                type: 'downloadNotification',
+                                from: currentUsername,
+                                to: data.from,
+                                messageId: data.messageId,
+                                downloadedTime: downloadedTime
+                            }));
+                            console.log('Sent downloadNotification:', { messageId: data.messageId, to: data.from });
+                        } else {
+                            console.error('WebSocket not open for downloadNotification');
+                        }
                     } else {
                         console.error('Download cell not found');
                     }
@@ -412,12 +419,20 @@
         }
 
         function updateDownloadedTime(data) {
-            const row = fileTable.querySelector(`tr[data-messageId="${data.messageId}"]`);
-            if (row) {
-                const downloadCell = row.querySelector('.downloaded-time');
-                if (downloadCell) {
-                    downloadCell.textContent = new Date(data.downloadedTime).toLocaleString();
+            console.log('Received downloadNotification:', data);
+            const file = files.find(f => f.messageId === data.messageId);
+            if (file) {
+                file.downloadedTime = data.downloadedTime;
+                if (selectedUser === data.from || selectedUser === data.to) {
+                    fileTable.innerHTML = '';
+                    files.forEach(f => {
+                        if (f.from === selectedUser || f.to === selectedUser) {
+                            displayFileMessage(f, f.from === currentUsername);
+                        }
+                    });
                 }
+            } else {
+                console.error('File not found for messageId:', data.messageId);
             }
         }
 
