@@ -1,15 +1,51 @@
-{
-  "name": "filesync-pro-server",
-  "version": "1.0.0",
-  "description": "WebSocket server for FileSync Pro file transfers",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "ws": "^8.14.2"
-  },
-  "author": "",
-  "license": "ISC"
-}
+const WebSocket = require('ws');
+const http = require('http');
+const express = require('express');
+const path = require('path');
+const axios = require('axios');
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+app.use(express.static(path.join(__dirname, '.')));
+app.get('/health', (req, res) => {
+    res.status(200).send('Server is running');
+});
+
+// Ping to prevent spin-down
+const pingUrl = 'https://filesync-pro.onrender.com/health'; // Your Render URL
+setInterval(() => {
+    axios.get(pingUrl).catch((error) => {
+        console.error('Ping error:', error.message);
+    });
+}, 300000); // Every 5 minutes
+
+wss.on('connection', (ws) => {
+    console.log('New client connected');
+    ws.on('message', (message) => {
+        try {
+            const data = JSON.parse(message.toString('utf8'));
+            if (data.fileName && data.fileContent && data.sentTime) {
+                wss.clients.forEach((client) => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify(data));
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error processing message:', error);
+        }
+    });
+    ws.on('close', () => {
+        console.log('Client disconnected');
+    });
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+    });
+});
+
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
