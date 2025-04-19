@@ -7,8 +7,9 @@ const axios = require('axios');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+const clients = new Map(); // Store client username and WebSocket
 
-// Serve static files (e.g., index.html)
+// Serve static files
 app.use(express.static(path.join(__dirname, '.')));
 
 // Health check endpoint
@@ -26,27 +27,81 @@ setInterval(() => {
 
 wss.on('connection', (ws) => {
     console.log('New client connected');
+
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message.toString('utf8'));
-            if (data.fileName && data.fileContent && data.sentTime && data.messageId) {
-                wss.clients.forEach((client) => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(data));
-                    }
-                });
+            if (data.type === 'login') {
+                clients.set(data.username, ws);
+                ws.username = data.username;
+                broadcastUserList();
+            } else if (data.type === 'fileRequest' && data.from && data.to && data.fileName) {
+                const recipientWs = clients.get(data.to);
+                if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+                    recipientWs.send(JSON.stringify(data));
+                }
+            } else if (data.type === 'fileResponse' && data.from && data.to && data.accepted !== undefined) {
+                const senderWs = clients.get(data.to);
+                if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+                    senderWs.send(JSON.stringify(data));
+                }
+            } else if (data.type === 'file' && data.fileName && data.fileContent && data.sentTime && data.messageId && data.from && data.to) {
+                const recipientWs = clients.get(data.to);
+                if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+                    recipientWs.send(JSON.stringify({
+                        type: 'file',
+                        fileName: data.fileName,
+                        fileSize: data.fileSize,
+                        fileContent: data.fileContent,
+                        sentTime: data.sentTime,
+                        messageId: data.messageId,
+                        from: data.from,
+                        to: data.to
+                    }));
+                }
+                const senderWs = clients.get(data.from);
+                if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+                    senderWs.send(JSON.stringify({
+                        type: 'file',
+                        fileName: data.fileName,
+                        fileSize: data.fileSize,
+                        fileContent: data.fileContent,
+                        sentTime: data.sentTime,
+                        messageId: data.messageId,
+                        from: data.from,
+                        to: data.to
+                    }));
+                }
             }
         } catch (error) {
             console.error('Error processing message:', error);
         }
     });
+
     ws.on('close', () => {
+        if (ws.username) {
+            clients.delete(ws.username);
+            broadcastUserList();
+        }
         console.log('Client disconnected');
     });
+
     ws.on('error', (error) => {
         console.error('WebSocket error:', error);
     });
 });
+
+function broadcastUserList() {
+    const users = Array.from(clients.keys());
+    clients.forEach((ws) => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'userList',
+                users: users
+            }));
+        }
+    });
+}
 
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
