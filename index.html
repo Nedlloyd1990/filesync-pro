@@ -77,9 +77,26 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             display: none;
         }
-        .connected-users {
-            max-height: 200px;
-            overflow-y: auto;
+        .user-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            cursor: pointer;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .user-list-item:hover {
+            background: #f1f5f9;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        .selected-user {
+            background: #e0e7ff;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -109,17 +126,13 @@
                 </table>
             </div>
             <div class="user-panel">
-                <h3 class="text-lg font-semibold mb-4">Connect to Users</h3>
+                <h3 class="text-lg font-semibold mb-4">Users</h3>
                 <select id="connectUser" class="w-full border border-gray-300 rounded-md p-2 mb-4">
                     <option value="">Select a user to connect</option>
                 </select>
                 <button class="action-btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 mb-4" onclick="sendConnectionRequest()">Request Connection</button>
                 <h3 class="text-lg font-semibold mb-4">Connected Users</h3>
-                <div class="connected-users mb-4">
-                    <select id="recipient" class="w-full border border-gray-300 rounded-md p-2">
-                        <option value="">Select a connected user</option>
-                    </select>
-                </div>
+                <div id="userList" class="mb-4"></div>
                 <button class="action-btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 mb-4" onclick="document.getElementById('fileInput').click()">Select File</button>
                 <input type="file" id="fileInput" class="hidden" onchange="sendFile()">
             </div>
@@ -137,7 +150,7 @@
         const fileTable = document.getElementById('fileTable');
         const fileInput = document.getElementById('fileInput');
         const connectUserSelect = document.getElementById('connectUser');
-        const recipientSelect = document.getElementById('recipient');
+        const userList = document.getElementById('userList');
         const status = document.getElementById('status');
         const statusDot = document.getElementById('statusDot');
         const usernameSpan = document.getElementById('username');
@@ -149,7 +162,9 @@
         let currentUsername;
         let lastSentMessageId = null;
         let connectedUsers = [];
-        let pendingFileData = null;
+        let allUsers = [];
+        let selectedUser = null;
+        let files = [];
 
         function generateMessageId() {
             return Math.random().toString(36).substr(2, 9);
@@ -180,7 +195,8 @@
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === 'userList') {
-                        updateUserList(data.users);
+                        allUsers = data.users;
+                        updateUserList();
                     } else if (data.type === 'connectionRequest' && data.to === currentUsername) {
                         showConnectionNotification(data);
                     } else if (data.type === 'connectionResponse' && data.to === currentUsername) {
@@ -190,7 +206,10 @@
                             lastSentMessageId = null;
                             return;
                         }
-                        displayFileMessage(data, data.from === currentUsername);
+                        files.push(data);
+                        if (selectedUser === data.from || selectedUser === data.to) {
+                            displayFileMessage(data, data.from === currentUsername);
+                        }
                     } else if (data.type === 'downloadNotification' && data.to === currentUsername) {
                         updateDownloadedTime(data);
                     }
@@ -214,9 +233,9 @@
             };
         }
 
-        function updateUserList(users) {
+        function updateUserList() {
             connectUserSelect.innerHTML = '<option value="">Select a user to connect</option>';
-            users.forEach(user => {
+            allUsers.forEach(user => {
                 if (user !== currentUsername && !connectedUsers.includes(user)) {
                     const option = document.createElement('option');
                     option.value = user;
@@ -224,21 +243,44 @@
                     connectUserSelect.appendChild(option);
                 }
             });
-            updateConnectedUsers();
-        }
 
-        function updateConnectedUsers() {
-            recipientSelect.innerHTML = '<option value="">Select a connected user</option>';
-            connectedUsers.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user;
-                option.textContent = user;
-                recipientSelect.appendChild(option);
+            userList.innerHTML = '';
+            allUsers.forEach(user => {
+                if (user !== currentUsername) {
+                    const isConnected = connectedUsers.includes(user);
+                    const userItem = document.createElement('div');
+                    userItem.classList.add('user-list-item');
+                    if (selectedUser === user) {
+                        userItem.classList.add('selected-user');
+                    }
+                    userItem.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="status-dot ${isConnected ? 'bg-green-400' : 'bg-red-400'}"></span>
+                            <span>${user}</span>
+                        </div>
+                        ${isConnected ? '' : '<button class="action-btn bg-blue-600 text-white px-2 py-1 rounded-md hover:bg-blue-700" onclick="sendConnectionRequest(\'' + user + '\')">Request</button>'}
+                    `;
+                    userItem.addEventListener('click', () => {
+                        selectUser(user);
+                    });
+                    userList.appendChild(userItem);
+                }
             });
         }
 
-        function sendConnectionRequest() {
-            const recipient = connectUserSelect.value;
+        function selectUser(user) {
+            selectedUser = user;
+            fileTable.innerHTML = '';
+            files.forEach(data => {
+                if (data.from === user || data.to === user) {
+                    displayFileMessage(data, data.from === currentUsername);
+                }
+            });
+            updateUserList();
+        }
+
+        function sendConnectionRequest(user) {
+            const recipient = user || connectUserSelect.value;
             if (!recipient) {
                 alert('Please select a user to connect.');
                 return;
@@ -265,7 +307,7 @@
                     accepted: true
                 }));
                 connectedUsers.push(data.from);
-                updateConnectedUsers();
+                updateUserList();
                 notification.style.display = 'none';
             };
             rejectBtn.onclick = () => {
@@ -282,7 +324,7 @@
         function handleConnectionResponse(data) {
             if (data.accepted) {
                 connectedUsers.push(data.from);
-                updateConnectedUsers();
+                updateUserList();
                 alert(`${data.from} accepted your connection request.`);
             } else {
                 alert(`${data.from} rejected your connection request.`);
@@ -300,38 +342,39 @@
                 alert('File too large. Max size is 5MB.');
                 return;
             }
-            const recipient = recipientSelect.value;
-            if (!recipient) {
+            if (!selectedUser || !connectedUsers.includes(selectedUser)) {
                 alert('Please select a connected user.');
                 return;
             }
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                pendingFileData = {
+                const fileData = {
                     fileName: file.name,
                     fileSize: file.size,
                     fileContent: e.target.result,
                     sentTime: new Date().toISOString(),
                     messageId: generateMessageId(),
                     from: currentUsername,
-                    to: recipient
+                    to: selectedUser
                 };
                 socket.send(JSON.stringify({
                     type: 'file',
-                    ...pendingFileData
+                    ...fileData
                 }));
-                displayFileMessage(pendingFileData, true);
-                lastSentMessageId = pendingFileData.messageId;
+                files.push(fileData);
+                if (selectedUser === fileData.to || selectedUser === fileData.from) {
+                    displayFileMessage(fileData, true);
+                }
+                lastSentMessageId = fileData.messageId;
                 fileInput.value = '';
-                pendingFileData = null;
             };
             reader.readAsDataURL(file);
         }
 
         function displayFileMessage(data, isSent) {
             const row = document.createElement('tr');
-            row.dataset.messageId = data.messageId; // Store messageId for download updates
+            row.dataset.messageId = data.messageId;
             const sizeKB = (data.fileSize / 1024).toFixed(2);
             const viewedTime = new Date().toISOString();
             let downloadedTime = '-';
