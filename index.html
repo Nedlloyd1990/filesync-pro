@@ -77,6 +77,10 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             display: none;
         }
+        .connected-users {
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -105,12 +109,19 @@
                 </table>
             </div>
             <div class="user-panel">
-                <h3 class="text-lg font-semibold mb-4">Connected Users</h3>
-                <select id="recipient" class="w-full border border-gray-300 rounded-md p-2 mb-4">
-                    <option value="">Select a recipient</option>
+                <h3 class="text-lg font-semibold mb-4">Connect to Users</h3>
+                <select id="connectUser" class="w-full border border-gray-300 rounded-md p-2 mb-4">
+                    <option value="">Select a user to connect</option>
                 </select>
+                <button class="action-btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 mb-4" onclick="sendConnectionRequest()">Request Connection</button>
+                <h3 class="text-lg font-semibold mb-4">Connected Users</h3>
+                <div class="connected-users mb-4">
+                    <select id="recipient" class="w-full border border-gray-300 rounded-md p-2">
+                        <option value="">Select a connected user</option>
+                    </select>
+                </div>
                 <button class="action-btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 mb-4" onclick="document.getElementById('fileInput').click()">Select File</button>
-                <input type="file" id="fileInput" class="hidden" onchange="requestFileTransfer()">
+                <input type="file" id="fileInput" class="hidden" onchange="sendFile()">
             </div>
         </div>
     </div>
@@ -125,6 +136,7 @@
     <script>
         const fileTable = document.getElementById('fileTable');
         const fileInput = document.getElementById('fileInput');
+        const connectUserSelect = document.getElementById('connectUser');
         const recipientSelect = document.getElementById('recipient');
         const status = document.getElementById('status');
         const statusDot = document.getElementById('statusDot');
@@ -136,6 +148,7 @@
         let socket;
         let currentUsername;
         let lastSentMessageId = null;
+        let connectedUsers = [];
         let pendingFileData = null;
 
         function generateMessageId() {
@@ -168,16 +181,18 @@
                     const data = JSON.parse(event.data);
                     if (data.type === 'userList') {
                         updateUserList(data.users);
-                    } else if (data.type === 'fileRequest' && data.to === currentUsername) {
-                        showNotification(data);
-                    } else if (data.type === 'fileResponse' && data.from === pendingFileData?.to && data.to === currentUsername) {
-                        handleFileResponse(data);
-                    } else if (data.type === 'file' && data.to === currentUsername && data.messageId) {
+                    } else if (data.type === 'connectionRequest' && data.to === currentUsername) {
+                        showConnectionNotification(data);
+                    } else if (data.type === 'connectionResponse' && data.to === currentUsername) {
+                        handleConnectionResponse(data);
+                    } else if (data.type === 'file' && (data.to === currentUsername || data.from === currentUsername) && data.messageId) {
                         if (data.messageId === lastSentMessageId) {
                             lastSentMessageId = null;
                             return;
                         }
-                        displayFileMessage(data, false);
+                        displayFileMessage(data, data.from === currentUsername);
+                    } else if (data.type === 'downloadNotification' && data.to === currentUsername) {
+                        updateDownloadedTime(data);
                     }
                 } catch (error) {
                     console.error('Error parsing message:', error);
@@ -200,18 +215,81 @@
         }
 
         function updateUserList(users) {
-            recipientSelect.innerHTML = '<option value="">Select a recipient</option>';
+            connectUserSelect.innerHTML = '<option value="">Select a user to connect</option>';
             users.forEach(user => {
-                if (user !== currentUsername) {
+                if (user !== currentUsername && !connectedUsers.includes(user)) {
                     const option = document.createElement('option');
                     option.value = user;
                     option.textContent = user;
-                    recipientSelect.appendChild(option);
+                    connectUserSelect.appendChild(option);
                 }
+            });
+            updateConnectedUsers();
+        }
+
+        function updateConnectedUsers() {
+            recipientSelect.innerHTML = '<option value="">Select a connected user</option>';
+            connectedUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user;
+                option.textContent = user;
+                recipientSelect.appendChild(option);
             });
         }
 
-        function requestFileTransfer() {
+        function sendConnectionRequest() {
+            const recipient = connectUserSelect.value;
+            if (!recipient) {
+                alert('Please select a user to connect.');
+                return;
+            }
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                alert('Server not connected. Please wait or refresh.');
+                return;
+            }
+            socket.send(JSON.stringify({
+                type: 'connectionRequest',
+                from: currentUsername,
+                to: recipient
+            }));
+        }
+
+        function showConnectionNotification(data) {
+            notificationText.textContent = `${data.from} wants to connect with you. Accept?`;
+            notification.style.display = 'block';
+            acceptBtn.onclick = () => {
+                socket.send(JSON.stringify({
+                    type: 'connectionResponse',
+                    from: currentUsername,
+                    to: data.from,
+                    accepted: true
+                }));
+                connectedUsers.push(data.from);
+                updateConnectedUsers();
+                notification.style.display = 'none';
+            };
+            rejectBtn.onclick = () => {
+                socket.send(JSON.stringify({
+                    type: 'connectionResponse',
+                    from: currentUsername,
+                    to: data.from,
+                    accepted: false
+                }));
+                notification.style.display = 'none';
+            };
+        }
+
+        function handleConnectionResponse(data) {
+            if (data.accepted) {
+                connectedUsers.push(data.from);
+                updateConnectedUsers();
+                alert(`${data.from} accepted your connection request.`);
+            } else {
+                alert(`${data.from} rejected your connection request.`);
+            }
+        }
+
+        function sendFile() {
             const file = fileInput.files[0];
             if (!file) return;
             if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -224,7 +302,7 @@
             }
             const recipient = recipientSelect.value;
             if (!recipient) {
-                alert('Please select a recipient.');
+                alert('Please select a connected user.');
                 return;
             }
 
@@ -240,56 +318,20 @@
                     to: recipient
                 };
                 socket.send(JSON.stringify({
-                    type: 'fileRequest',
-                    from: currentUsername,
-                    to: recipient,
-                    fileName: file.name
-                }));
-                fileInput.value = '';
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function showNotification(data) {
-            notificationText.textContent = `${data.from} wants to send you ${data.fileName}. Accept?`;
-            notification.style.display = 'block';
-            acceptBtn.onclick = () => {
-                socket.send(JSON.stringify({
-                    type: 'fileResponse',
-                    from: currentUsername,
-                    to: data.from,
-                    accepted: true
-                }));
-                notification.style.display = 'none';
-            };
-            rejectBtn.onclick = () => {
-                socket.send(JSON.stringify({
-                    type: 'fileResponse',
-                    from: currentUsername,
-                    to: data.from,
-                    accepted: false
-                }));
-                notification.style.display = 'none';
-            };
-        }
-
-        function handleFileResponse(data) {
-            if (data.accepted) {
-                socket.send(JSON.stringify({
                     type: 'file',
                     ...pendingFileData
                 }));
                 displayFileMessage(pendingFileData, true);
                 lastSentMessageId = pendingFileData.messageId;
+                fileInput.value = '';
                 pendingFileData = null;
-            } else {
-                alert(`${data.from} rejected the file transfer.`);
-                pendingFileData = null;
-            }
+            };
+            reader.readAsDataURL(file);
         }
 
         function displayFileMessage(data, isSent) {
             const row = document.createElement('tr');
+            row.dataset.messageId = data.messageId; // Store messageId for download updates
             const sizeKB = (data.fileSize / 1024).toFixed(2);
             const viewedTime = new Date().toISOString();
             let downloadedTime = '-';
@@ -305,18 +347,35 @@
             `;
             fileTable.appendChild(row);
 
-            const downloadLink = row.querySelector('.download-link');
-            downloadLink.addEventListener('click', () => {
+            if (!isSent) {
+                const downloadLink = row.querySelector('.download-link');
+                downloadLink.addEventListener('click', () => {
+                    const downloadCell = row.querySelector('.downloaded-time');
+                    if (downloadCell) {
+                        downloadedTime = new Date().toISOString();
+                        downloadCell.textContent = new Date(downloadedTime).toLocaleString();
+                        socket.send(JSON.stringify({
+                            type: 'downloadNotification',
+                            from: currentUsername,
+                            to: data.from,
+                            messageId: data.messageId,
+                            downloadedTime: downloadedTime
+                        }));
+                    } else {
+                        console.error('Download cell not found');
+                    }
+                });
+            }
+        }
+
+        function updateDownloadedTime(data) {
+            const row = fileTable.querySelector(`tr[data-messageId="${data.messageId}"]`);
+            if (row) {
                 const downloadCell = row.querySelector('.downloaded-time');
                 if (downloadCell) {
-                    downloadedTime = new Date().toISOString();
-                    downloadCell.textContent = new Date(downloadedTime).toLocaleString();
-                } else {
-                    console.error('Download cell not found');
+                    downloadCell.textContent = new Date(data.downloadedTime).toLocaleString();
                 }
-            });
-
-            fileTable.parentElement.scrollTop = fileTable.parentElement.scrollHeight;
+            }
         }
 
         initSocket();
