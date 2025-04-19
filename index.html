@@ -61,10 +61,14 @@
         const status = document.getElementById('status');
         const statusDot = document.getElementById('statusDot');
         let socket;
+        let lastSentMessageId = null;
+
+        function generateMessageId() {
+            return Math.random().toString(36).substr(2, 9);
+        }
 
         function initSocket() {
-            // Replace with your Render URL (e.g., wss://filesync-pro.onrender.com)
-            socket = new WebSocket('wss://filesync-pro.onrender.com');
+            socket = new WebSocket('wss://filesync-pro.onrender.com'); // Replace with your Render URL
             socket.onopen = () => {
                 status.textContent = 'Connected to server';
                 statusDot.classList.remove('bg-red-400');
@@ -74,7 +78,12 @@
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.fileName && data.fileContent && data.sentTime) {
+                    if (data.fileName && data.fileContent && data.sentTime && data.messageId) {
+                        // Skip displaying if this is the sender's own message
+                        if (data.messageId === lastSentMessageId) {
+                            lastSentMessageId = null;
+                            return;
+                        }
                         displayFileMessage(data, false);
                     }
                 } catch (error) {
@@ -110,12 +119,15 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 const sentTime = new Date().toISOString();
+                const messageId = generateMessageId();
                 const fileData = {
                     fileName: file.name,
                     fileSize: file.size,
                     fileContent: e.target.result,
-                    sentTime: sentTime
+                    sentTime: sentTime,
+                    messageId: messageId
                 };
+                lastSentMessageId = messageId;
                 socket.send(JSON.stringify(fileData));
                 displayFileMessage(fileData, true);
                 fileInput.value = '';
