@@ -1,4 +1,43 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -8,78 +47,171 @@
     <style>
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .main-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #f8fafc;
+        }
+        .header {
+            background: linear-gradient(to right, #1e3a8a, #3b82f6);
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .content {
+            flex: 1;
+            display: flex;
+            padding: 1rem;
+            gap: 1rem;
+            overflow: hidden;
         }
         .table-container {
-            max-height: calc(100vh - 200px);
+            flex: 1;
+            overflow-y: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .user-panel {
+            width: 300px;
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
             overflow-y: auto;
         }
         th, td {
             padding: 12px;
             text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f1f5f9;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
         .action-btn {
-            transition: transform 0.2s ease;
+            transition: background-color 0.3s ease, transform 0.2s ease;
         }
         .action-btn:hover {
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+        }
+        .notification {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            display: none;
         }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto max-w-4xl bg-white shadow-lg rounded-lg overflow-hidden m-4">
-        <div class="header bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 flex justify-between items-center">
-            <span class="text-xl font-semibold">FileSync Pro</span>
-            <span id="statusDot" class="w-3 h-3 rounded-full bg-green-400"></span>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <span class="text-xl font-semibold">FileSync Pro - <span id="username"></span></span>
+            <div class="flex items-center gap-2">
+                <span id="status" class="text-sm"></span>
+                <span id="statusDot" class="w-3 h-3 rounded-full"></span>
+            </div>
         </div>
-        <div class="p-6">
-            <div id="status" class="text-center text-gray-500 text-sm mb-4">Connecting to server...</div>
+        <div class="content">
             <div class="table-container">
                 <table class="w-full table-auto border-collapse">
-                    <thead class="bg-gray-200 sticky top-0">
+                    <thead>
                         <tr>
-                            <th class="border-b border-gray-300">File Name</th>
-                            <th class="border-b border-gray-300">Sent Time</th>
-                            <th class="border-b border-gray-300">Viewed Time</th>
-                            <th class="border-b border-gray-300">Downloaded Time</th>
-                            <th class="border-b border-gray-300">File Size</th>
-                            <th class="border-b border-gray-300">Actions</th>
+                            <th>File Name</th>
+                            <th>Sent Time</th>
+                            <th>Viewed Time</th>
+                            <th>Downloaded Time</th>
+                            <th>File Size</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="fileTable"></tbody>
                 </table>
             </div>
-            <div class="input-area mt-4 flex items-center gap-4">
-                <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 action-btn" onclick="document.getElementById('fileInput').click()">Send File</button>
-                <input type="file" id="fileInput" class="hidden" onchange="sendFile()">
+            <div class="user-panel">
+                <h3 class="text-lg font-semibold mb-4">Connected Users</h3>
+                <select id="recipient" class="w-full border border-gray-300 rounded-md p-2 mb-4">
+                    <option value="">Select a recipient</option>
+                </select>
+                <button class="action-btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 mb-4" onclick="document.getElementById('fileInput').click()">Select File</button>
+                <input type="file" id="fileInput" class="hidden" onchange="requestFileTransfer()">
             </div>
+        </div>
+    </div>
+    <div id="notification" class="notification">
+        <p id="notificationText"></p>
+        <div class="flex gap-2 mt-2">
+            <button id="acceptBtn" class="action-btn bg-green-600 text-white px-4 py-1 rounded-md hover:bg-green-700">Accept</button>
+            <button id="rejectBtn" class="action-btn bg-red-600 text-white px-4 py-1 rounded-md hover:bg-red-700">Reject</button>
         </div>
     </div>
 
     <script>
         const fileTable = document.getElementById('fileTable');
         const fileInput = document.getElementById('fileInput');
+        const recipientSelect = document.getElementById('recipient');
         const status = document.getElementById('status');
         const statusDot = document.getElementById('statusDot');
+        const usernameSpan = document.getElementById('username');
+        const notification = document.getElementById('notification');
+        const notificationText = document.getElementById('notificationText');
+        const acceptBtn = document.getElementById('acceptBtn');
+        const rejectBtn = document.getElementById('rejectBtn');
         let socket;
+        let currentUsername;
         let lastSentMessageId = null;
+        let pendingFileData = null;
 
         function generateMessageId() {
             return Math.random().toString(36).substr(2, 9);
         }
 
+        function getUsernameFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('username');
+        }
+
         function initSocket() {
             socket = new WebSocket('wss://filesync-pro.onrender.com'); // Replace with your Render URL
+            currentUsername = getUsernameFromQuery();
+            if (!currentUsername) {
+                window.location.href = '/login.html';
+                return;
+            }
+            usernameSpan.textContent = currentUsername;
+
             socket.onopen = () => {
                 status.textContent = 'Connected to server';
-                statusDot.classList.remove('bg-red-400');
                 statusDot.classList.add('bg-green-400');
                 console.log('WebSocket connected');
+                socket.send(JSON.stringify({ type: 'login', username: currentUsername }));
             };
+
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.fileName && data.fileContent && data.sentTime && data.messageId) {
-                        // Skip displaying if this is the sender's own message
+                    if (data.type === 'userList') {
+                        updateUserList(data.users);
+                    } else if (data.type === 'fileRequest' && data.to === currentUsername) {
+                        showNotification(data);
+                    } else if (data.type === 'fileResponse' && data.from === pendingFileData?.to && data.to === currentUsername) {
+                        handleFileResponse(data);
+                    } else if (data.type === 'file' && data.to === currentUsername && data.messageId) {
                         if (data.messageId === lastSentMessageId) {
                             lastSentMessageId = null;
                             return;
@@ -90,12 +222,14 @@
                     console.error('Error parsing message:', error);
                 }
             };
-            socket.onclose = (event) => {
+
+            socket.onclose = () => {
                 status.textContent = 'Disconnected from server';
                 statusDot.classList.remove('bg-green-400');
                 statusDot.classList.add('bg-red-400');
-                console.log('WebSocket closed:', event);
+                console.log('WebSocket closed');
             };
+
             socket.onerror = (error) => {
                 status.textContent = 'Connection error';
                 statusDot.classList.remove('bg-green-400');
@@ -104,7 +238,19 @@
             };
         }
 
-        function sendFile() {
+        function updateUserList(users) {
+            recipientSelect.innerHTML = '<option value="">Select a recipient</option>';
+            users.forEach(user => {
+                if (user !== currentUsername) {
+                    const option = document.createElement('option');
+                    option.value = user;
+                    option.textContent = user;
+                    recipientSelect.appendChild(option);
+                }
+            });
+        }
+
+        function requestFileTransfer() {
             const file = fileInput.files[0];
             if (!file) return;
             if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -115,24 +261,70 @@
                 alert('File too large. Max size is 5MB.');
                 return;
             }
+            const recipient = recipientSelect.value;
+            if (!recipient) {
+                alert('Please select a recipient.');
+                return;
+            }
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                const sentTime = new Date().toISOString();
-                const messageId = generateMessageId();
-                const fileData = {
+                pendingFileData = {
                     fileName: file.name,
                     fileSize: file.size,
                     fileContent: e.target.result,
-                    sentTime: sentTime,
-                    messageId: messageId
+                    sentTime: new Date().toISOString(),
+                    messageId: generateMessageId(),
+                    from: currentUsername,
+                    to: recipient
                 };
-                lastSentMessageId = messageId;
-                socket.send(JSON.stringify(fileData));
-                displayFileMessage(fileData, true);
+                socket.send(JSON.stringify({
+                    type: 'fileRequest',
+                    from: currentUsername,
+                    to: recipient,
+                    fileName: file.name
+                }));
                 fileInput.value = '';
             };
             reader.readAsDataURL(file);
+        }
+
+        function showNotification(data) {
+            notificationText.textContent = `${data.from} wants to send you ${data.fileName}. Accept?`;
+            notification.style.display = 'block';
+            acceptBtn.onclick = () => {
+                socket.send(JSON.stringify({
+                    type: 'fileResponse',
+                    from: currentUsername,
+                    to: data.from,
+                    accepted: true
+                }));
+                notification.style.display = 'none';
+            };
+            rejectBtn.onclick = () => {
+                socket.send(JSON.stringify({
+                    type: 'fileResponse',
+                    from: currentUsername,
+                    to: data.from,
+                    accepted: false
+                }));
+                notification.style.display = 'none';
+            };
+        }
+
+        function handleFileResponse(data) {
+            if (data.accepted) {
+                socket.send(JSON.stringify({
+                    type: 'file',
+                    ...pendingFileData
+                }));
+                displayFileMessage(pendingFileData, true);
+                lastSentMessageId = pendingFileData.messageId;
+                pendingFileData = null;
+            } else {
+                alert(`${data.from} rejected the file transfer.`);
+                pendingFileData = null;
+            }
         }
 
         function displayFileMessage(data, isSent) {
@@ -141,26 +333,28 @@
             const viewedTime = new Date().toISOString();
             let downloadedTime = '-';
             row.innerHTML = `
-                <td class="border-b border-gray-200">${data.fileName}</td>
-                <td class="border-b border-gray-200">${new Date(data.sentTime).toLocaleString()}</td>
-                <td class="border-b border-gray-200">${new Date(viewedTime).toLocaleString()}</td>
-                <td class="border-b border-gray-200 downloaded-time">${downloadedTime}</td>
-                <td class="border-b border-gray-200">${sizeKB} KB</td>
-                <td class="border-b border-gray-200">
+                <td>${data.fileName}</td>
+                <td>${new Date(data.sentTime).toLocaleString()}</td>
+                <td>${new Date(viewedTime).toLocaleString()}</td>
+                <td class="downloaded-time">${downloadedTime}</td>
+                <td>${sizeKB} KB</td>
+                <td>
                     <a href="${data.fileContent}" download="${data.fileName}" class="text-blue-600 hover:underline download-link">Download</a>
                 </td>
             `;
             fileTable.appendChild(row);
 
-            // Track download
             const downloadLink = row.querySelector('.download-link');
             downloadLink.addEventListener('click', () => {
                 const downloadCell = row.querySelector('.downloaded-time');
-                downloadedTime = new Date().toISOString();
-                downloadCell.textContent = new Date(downloadedTime).toLocaleString();
+                if (downloadCell) {
+                    downloadedTime = new Date().toISOString();
+                    downloadCell.textContent = new Date(downloadedTime).toLocaleString();
+                } else {
+                    console.error('Download cell not found');
+                }
             });
 
-            // Scroll to latest entry
             fileTable.parentElement.scrollTop = fileTable.parentElement.scrollHeight;
         }
 
