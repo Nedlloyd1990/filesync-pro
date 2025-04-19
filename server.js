@@ -12,14 +12,15 @@ const clients = new Map();
 app.use(express.static(path.join(__dirname, '.')));
 
 app.get('/health', (req, res) => {
+    console.log('Health check accessed');
     res.status(200).send('Server is running');
 });
 
 const pingUrl = 'https://filesync-pro.onrender.com/health'; // Replace with your Render URL
 setInterval(() => {
-    axios.get(pingUrl).catch((error) => {
-        console.error('Ping error:', error.message);
-    });
+    axios.get(pingUrl)
+        .then(() => console.log('Ping successful'))
+        .catch((error) => console.error('Ping error:', error.message));
 }, 300000);
 
 wss.on('connection', (ws) => {
@@ -28,6 +29,7 @@ wss.on('connection', (ws) => {
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message.toString('utf8'));
+            console.log('Received message:', data);
             if (data.type === 'login') {
                 clients.set(data.username, ws);
                 ws.username = data.username;
@@ -36,11 +38,17 @@ wss.on('connection', (ws) => {
                 const recipientWs = clients.get(data.to);
                 if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
                     recipientWs.send(JSON.stringify(data));
+                    console.log(`Sent connectionRequest from ${data.from} to ${data.to}`);
+                } else {
+                    console.error(`Recipient ${data.to} not found or not connected`);
                 }
             } else if (data.type === 'connectionResponse' && data.from && data.to && data.accepted !== undefined) {
                 const senderWs = clients.get(data.to);
                 if (senderWs && senderWs.readyState === WebSocket.OPEN) {
                     senderWs.send(JSON.stringify(data));
+                    console.log(`Sent connectionResponse from ${data.from} to ${data.to}`);
+                } else {
+                    console.error(`Sender ${data.to} not found or not connected`);
                 }
             } else if (data.type === 'file' && data.fileName && data.fileContent && data.sentTime && data.messageId && data.from && data.to) {
                 const recipientWs = clients.get(data.to);
@@ -55,6 +63,7 @@ wss.on('connection', (ws) => {
                         from: data.from,
                         to: data.to
                     }));
+                    console.log(`Sent file from ${data.from} to ${data.to}`);
                 }
                 const senderWs = clients.get(data.from);
                 if (senderWs && senderWs.readyState === WebSocket.OPEN) {
@@ -68,12 +77,18 @@ wss.on('connection', (ws) => {
                         from: data.from,
                         to: data.to
                     }));
+                    console.log(`Sent file confirmation to ${data.from}`);
                 }
             } else if (data.type === 'downloadNotification' && data.from && data.to && data.messageId && data.downloadedTime) {
                 const senderWs = clients.get(data.to);
                 if (senderWs && senderWs.readyState === WebSocket.OPEN) {
                     senderWs.send(JSON.stringify(data));
+                    console.log(`Sent downloadNotification from ${data.from} to ${data.to}`);
+                } else {
+                    console.error(`Sender ${data.to} not found or not connected for downloadNotification`);
                 }
+            } else {
+                console.error('Invalid message format:', data);
             }
         } catch (error) {
             console.error('Error processing message:', error);
@@ -84,8 +99,8 @@ wss.on('connection', (ws) => {
         if (ws.username) {
             clients.delete(ws.username);
             broadcastUserList();
+            console.log(`Client ${ws.username} disconnected`);
         }
-        console.log('Client disconnected');
     });
 
     ws.on('error', (error) => {
@@ -101,6 +116,7 @@ function broadcastUserList() {
                 type: 'userList',
                 users: users
             }));
+            console.log(`Sent userList to ${ws.username}`);
         }
     });
 }
