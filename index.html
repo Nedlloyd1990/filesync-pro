@@ -64,7 +64,7 @@
 
         function initSocket() {
             // Replace with your Render URL (e.g., wss://filesync-pro.onrender.com)
-            socket = new WebSocket('wss://your-app-name.onrender.com');
+            socket = new WebSocket('wss://filesync-pro.onrender.com');
             socket.onopen = () => {
                 status.textContent = 'Connected to server';
                 statusDot.classList.remove('bg-red-400');
