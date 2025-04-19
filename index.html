@@ -41,7 +41,6 @@
 
         .header .logo {
             font-size: 22px;
-            letter-spacing: 0.5px;
         }
 
         .header .status-dot {
@@ -49,7 +48,6 @@
             height: 12px;
             background-color: #38a169;
             border-radius: 50%;
-            margin-left: 12px;
         }
 
         .file-area {
@@ -93,7 +91,6 @@
             color: #2b6cb0;
             text-decoration: none;
             font-weight: 500;
-            transition: color 0.2s ease;
         }
 
         .file-link:hover {
@@ -128,7 +125,6 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .file-btn:hover {
@@ -167,33 +163,29 @@
         let socket;
 
         function initSocket() {
-            socket = new WebSocket('wss://file-transfer-server.onrender.com');
+            // Replace with your Render URL after deployment (e.g., wss://filesync-pro.onrender.com)
+            socket = new WebSocket('wss://your-app-name.onrender.com');
             socket.onopen = () => {
                 status.textContent = 'Connected to server';
                 statusDot.style.backgroundColor = '#38a169';
-                console.log('WebSocket connected');
             };
             socket.onmessage = (event) => {
-                const messageData = event.data.toString('utf8');
-                console.log('Raw data received:', messageData);
                 try {
-                    const data = JSON.parse(messageData);
-                    if (data.fileName) {
+                    const data = JSON.parse(event.data);
+                    if (data.fileName && data.fileContent) {
                         displayFileMessage(data, false);
                     }
                 } catch (error) {
-                    console.log('Parse error:', error);
+                    console.error('Error parsing message:', error);
                 }
             };
             socket.onclose = () => {
                 status.textContent = 'Disconnected from server';
                 statusDot.style.backgroundColor = '#e53e3e';
-                console.log('WebSocket disconnected');
             };
-            socket.onerror = (error) => {
+            socket.onerror = () => {
                 status.textContent = 'Connection error';
                 statusDot.style.backgroundColor = '#e53e3e';
-                console.log('WebSocket error:', error);
             };
         }
 
@@ -221,8 +213,7 @@
 
         function displayFileMessage(data, isSent) {
             const messageDiv = document.createElement('div');
-            messageDiv.classList.add('file-message');
-            messageDiv.classList.add(isSent ? 'sent' : 'received');
+            messageDiv.classList.add('file-message', isSent ? 'sent' : 'received');
             const sizeKB = (data.fileSize / 1024).toFixed(2);
             messageDiv.innerHTML = `
                 <a href="${data.fileContent}" download="${data.fileName}" class="file-link">${data.fileName}</a>
