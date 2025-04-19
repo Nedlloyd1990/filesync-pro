@@ -4,188 +4,94 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FileSync Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            margin: 0;
-            background-color: #f4f6f8;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            color: #2d3748;
         }
-
-        .container {
-            width: 100%;
-            max-width: 600px;
-            background-color: #ffffff;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-            border-radius: 12px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 90vh;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #2b6cb0, #1a4971);
-            color: white;
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        .header .logo {
-            font-size: 22px;
-        }
-
-        .header .status-dot {
-            width: 12px;
-            height: 12px;
-            background-color: #38a169;
-            border-radius: 50%;
-        }
-
-        .file-area {
-            flex: 1;
-            padding: 24px;
+        .table-container {
+            max-height: calc(100vh - 200px);
             overflow-y: auto;
-            background-color: #f9fafb;
         }
-
-        .file-message {
-            margin: 16px 0;
-            padding: 12px 16px;
-            border-radius: 8px;
-            max-width: 80%;
-            font-size: 14px;
-            line-height: 1.5;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        .action-btn {
             transition: transform 0.2s ease;
         }
-
-        .file-message:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-
-        .file-message.sent {
-            margin-left: auto;
-            background-color: #e6f0fa;
-            border-color: #bfdbfe;
-        }
-
-        .file-message.received {
-            margin-right: auto;
-        }
-
-        .file-link {
-            color: #2b6cb0;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .file-link:hover {
-            color: #1a4971;
-            text-decoration: underline;
-        }
-
-        .file-size {
-            color: #718096;
-            font-size: 12px;
-        }
-
-        .input-area {
-            padding: 16px 24px;
-            background-color: #ffffff;
-            border-top: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        #fileInput {
-            display: none;
-        }
-
-        .file-btn {
-            background: linear-gradient(135deg, #2b6cb0, #1a4971);
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .file-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(43, 108, 176, 0.3);
-        }
-
-        #status {
-            padding: 12px;
-            text-align: center;
-            color: #718096;
-            font-size: 13px;
-            background-color: #edf2f7;
+        .action-btn:hover {
+            transform: translateY(-1px);
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <span class="logo">FileSync Pro</span>
-            <span class="status-dot"></span>
+<body class="bg-gray-100">
+    <div class="container mx-auto max-w-4xl bg-white shadow-lg rounded-lg overflow-hidden m-4">
+        <div class="header bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 flex justify-between items-center">
+            <span class="text-xl font-semibold">FileSync Pro</span>
+            <span id="statusDot" class="w-3 h-3 rounded-full bg-green-400"></span>
         </div>
-        <div class="file-area" id="fileArea"></div>
-        <div id="status">Connecting to server...</div>
-        <div class="input-area">
-            <button class="file-btn" onclick="document.getElementById('fileInput').click()">Send File</button>
-            <input type="file" id="fileInput" onchange="sendFile()">
+        <div class="p-6">
+            <div id="status" class="text-center text-gray-500 text-sm mb-4">Connecting to server...</div>
+            <div class="table-container">
+                <table class="w-full table-auto border-collapse">
+                    <thead class="bg-gray-200 sticky top-0">
+                        <tr>
+                            <th class="border-b border-gray-300">File Name</th>
+                            <th class="border-b border-gray-300">Sent Time</th>
+                            <th class="border-b border-gray-300">Viewed Time</th>
+                            <th class="border-b border-gray-300">Downloaded Time</th>
+                            <th class="border-b border-gray-300">File Size</th>
+                            <th class="border-b border-gray-300">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fileTable"></tbody>
+                </table>
+            </div>
+            <div class="input-area mt-4 flex items-center gap-4">
+                <button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 action-btn" onclick="document.getElementById('fileInput').click()">Send File</button>
+                <input type="file" id="fileInput" class="hidden" onchange="sendFile()">
+            </div>
         </div>
     </div>
 
     <script>
-        const fileArea = document.getElementById('fileArea');
+        const fileTable = document.getElementById('fileTable');
         const fileInput = document.getElementById('fileInput');
         const status = document.getElementById('status');
-        const statusDot = document.querySelector('.status-dot');
+        const statusDot = document.getElementById('statusDot');
         let socket;
 
         function initSocket() {
-            // Replace with your Render URL after deployment (e.g., wss://filesync-pro.onrender.com)
-            socket = new WebSocket('wss://filesync-pro.onrender.com');;
+            // Replace with your Render URL (e.g., wss://filesync-pro.onrender.com)
+            socket = new WebSocket('wss://your-app-name.onrender.com');
             socket.onopen = () => {
                 status.textContent = 'Connected to server';
-                statusDot.style.backgroundColor = '#38a169';
+                statusDot.classList.remove('bg-red-400');
+                statusDot.classList.add('bg-green-400');
+                console.log('WebSocket connected');
             };
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.fileName && data.fileContent) {
+                    if (data.fileName && data.fileContent && data.sentTime) {
                         displayFileMessage(data, false);
                     }
                 } catch (error) {
                     console.error('Error parsing message:', error);
                 }
             };
-            socket.onclose = () => {
+            socket.onclose = (event) => {
                 status.textContent = 'Disconnected from server';
-                statusDot.style.backgroundColor = '#e53e3e';
+                statusDot.classList.remove('bg-green-400');
+                statusDot.classList.add('bg-red-400');
+                console.log('WebSocket closed:', event);
             };
-            socket.onerror = () => {
+            socket.onerror = (error) => {
                 status.textContent = 'Connection error';
-                statusDot.style.backgroundColor = '#e53e3e';
+                statusDot.classList.remove('bg-green-400');
+                statusDot.classList.add('bg-red-400');
+                console.error('WebSocket error:', error);
             };
         }
 
@@ -196,13 +102,19 @@
                 alert('Server not connected. Please wait or refresh.');
                 return;
             }
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File too large. Max size is 5MB.');
+                return;
+            }
 
             const reader = new FileReader();
             reader.onload = (e) => {
+                const sentTime = new Date().toISOString();
                 const fileData = {
                     fileName: file.name,
                     fileSize: file.size,
-                    fileContent: e.target.result
+                    fileContent: e.target.result,
+                    sentTime: sentTime
                 };
                 socket.send(JSON.stringify(fileData));
                 displayFileMessage(fileData, true);
@@ -212,15 +124,32 @@
         }
 
         function displayFileMessage(data, isSent) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('file-message', isSent ? 'sent' : 'received');
+            const row = document.createElement('tr');
             const sizeKB = (data.fileSize / 1024).toFixed(2);
-            messageDiv.innerHTML = `
-                <a href="${data.fileContent}" download="${data.fileName}" class="file-link">${data.fileName}</a>
-                <span class="file-size">(${sizeKB} KB)</span>
+            const viewedTime = new Date().toISOString();
+            let downloadedTime = '-';
+            row.innerHTML = `
+                <td class="border-b border-gray-200">${data.fileName}</td>
+                <td class="border-b border-gray-200">${new Date(data.sentTime).toLocaleString()}</td>
+                <td class="border-b border-gray-200">${new Date(viewedTime).toLocaleString()}</td>
+                <td class="border-b border-gray-200 downloaded-time">${downloadedTime}</td>
+                <td class="border-b border-gray-200">${sizeKB} KB</td>
+                <td class="border-b border-gray-200">
+                    <a href="${data.fileContent}" download="${data.fileName}" class="text-blue-600 hover:underline download-link">Download</a>
+                </td>
             `;
-            fileArea.appendChild(messageDiv);
-            fileArea.scrollTop = fileArea.scrollHeight;
+            fileTable.appendChild(row);
+
+            // Track download
+            const downloadLink = row.querySelector('.download-link');
+            downloadLink.addEventListener('click', () => {
+                const downloadCell = row.querySelector('.downloaded-time');
+                downloadedTime = new Date().toISOString();
+                downloadCell.textContent = new Date(downloadedTime).toLocaleString();
+            });
+
+            // Scroll to latest entry
+            fileTable.parentElement.scrollTop = fileTable.parentElement.scrollHeight;
         }
 
         initSocket();
