@@ -7,23 +7,20 @@ const axios = require('axios');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
-const clients = new Map(); // Store client username and WebSocket
+const clients = new Map();
 
-// Serve static files
 app.use(express.static(path.join(__dirname, '.')));
 
-// Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).send('Server is running');
 });
 
-// Ping to prevent spin-down
 const pingUrl = 'https://filesync-pro.onrender.com/health'; // Replace with your Render URL
 setInterval(() => {
     axios.get(pingUrl).catch((error) => {
         console.error('Ping error:', error.message);
     });
-}, 300000); // Every 5 minutes
+}, 300000);
 
 wss.on('connection', (ws) => {
     console.log('New client connected');
@@ -35,12 +32,12 @@ wss.on('connection', (ws) => {
                 clients.set(data.username, ws);
                 ws.username = data.username;
                 broadcastUserList();
-            } else if (data.type === 'fileRequest' && data.from && data.to && data.fileName) {
+            } else if (data.type === 'connectionRequest' && data.from && data.to) {
                 const recipientWs = clients.get(data.to);
                 if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
                     recipientWs.send(JSON.stringify(data));
                 }
-            } else if (data.type === 'fileResponse' && data.from && data.to && data.accepted !== undefined) {
+            } else if (data.type === 'connectionResponse' && data.from && data.to && data.accepted !== undefined) {
                 const senderWs = clients.get(data.to);
                 if (senderWs && senderWs.readyState === WebSocket.OPEN) {
                     senderWs.send(JSON.stringify(data));
@@ -71,6 +68,11 @@ wss.on('connection', (ws) => {
                         from: data.from,
                         to: data.to
                     }));
+                }
+            } else if (data.type === 'downloadNotification' && data.from && data.to && data.messageId && data.downloadedTime) {
+                const senderWs = clients.get(data.to);
+                if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+                    senderWs.send(JSON.stringify(data));
                 }
             }
         } catch (error) {
