@@ -1,0 +1,127 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FileSync Pro - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(to bottom right, #1e3a8a, #3b82f6);
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+        }
+        .input-field {
+            transition: border-color 0.3s ease;
+        }
+        .input-field:focus {
+            border-color: #2563eb;
+            outline: none;
+        }
+        .btn {
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2 class="text-2xl font-semibold text-center text-gray-800 mb-6">FileSync Pro Login</h2>
+        <div id="error" class="text-red-500 text-sm mb-4 hidden"></div>
+        <div class="mb-4">
+            <label for="userid" class="block text-sm font-medium text-gray-700">User ID</label>
+            <input type="text" id="userid" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+        </div>
+        <div class="mb-6">
+            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+            <input type="password" id="password" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+        </div>
+        <button onclick="login()" class="btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Login</button>
+    </div>
+
+    <script>
+        const users = {
+            'user1': 'password1',
+            'user2': 'password2',
+            'user3': 'password3'
+        };
+
+        function login() {
+            const userid = document.getElementById('userid').value.trim();
+            const password = document.getElementById('password').value;
+            const error = document.getElementById('error');
+
+            if (!userid || !password) {
+                error.textContent = 'Please enter both User ID and Password';
+                error.classList.remove('hidden');
+                return;
+            }
+
+            if (users[userid] && users[userid] === password) {
+                window.location.href = `/index.html?username=${encodeURIComponent(userid)}`;
+            } else {
+                error.textContent = 'Invalid User ID or Password';
+                error.classList.remove('hidden');
+            }
+        }
+
+        // Allow Enter key to trigger login
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>
