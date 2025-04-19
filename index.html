@@ -98,6 +98,14 @@
             background: #e0e7ff;
             font-weight: 600;
         }
+        .sent {
+            color: #2563eb;
+            font-weight: 500;
+        }
+        .received {
+            color: #16a34a;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -114,6 +122,7 @@
                 <table class="w-full table-auto border-collapse">
                     <thead>
                         <tr>
+                            <th>Direction</th>
                             <th>File Name</th>
                             <th>Sent Time</th>
                             <th>Viewed Time</th>
@@ -380,7 +389,10 @@
             const sizeKB = (data.fileSize / 1024).toFixed(2);
             const viewedTime = new Date().toISOString();
             const downloadedTime = data.downloadedTime || '-';
+            const direction = isSent ? 'Sent ➡️' : 'Received ⬅️';
+            const directionClass = isSent ? 'sent' : 'received';
             row.innerHTML = `
+                <td class="${directionClass}">${direction}</td>
                 <td>${data.fileName}</td>
                 <td>${new Date(data.sentTime).toLocaleString()}</td>
                 <td>${new Date(viewedTime).toLocaleString()}</td>
