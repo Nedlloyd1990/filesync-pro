@@ -1,0 +1,15 @@
+{
+  "name": "filesync-pro-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for FileSync Pro file transfers",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
+  },
+  "author": "",
+  "license": "ISC"
+}

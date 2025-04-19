@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FileSync Pro</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            background-color: #f4f6f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #2d3748;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background-color: #ffffff;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2b6cb0, #1a4971);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header .logo {
+            font-size: 22px;
+            letter-spacing: 0.5px;
+        }
+
+        .header .status-dot {
+            width: 12px;
+            height: 12px;
+            background-color: #38a169;
+            border-radius: 50%;
+            margin-left: 12px;
+        }
+
+        .file-area {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            background-color: #f9fafb;
+        }
+
+        .file-message {
+            margin: 16px 0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-width: 80%;
+            font-size: 14px;
+            line-height: 1.5;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            transition: transform 0.2s ease;
+        }
+
+        .file-message:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .file-message.sent {
+            margin-left: auto;
+            background-color: #e6f0fa;
+            border-color: #bfdbfe;
+        }
+
+        .file-message.received {
+            margin-right: auto;
+        }
+
+        .file-link {
+            color: #2b6cb0;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .file-link:hover {
+            color: #1a4971;
+            text-decoration: underline;
+        }
+
+        .file-size {
+            color: #718096;
+            font-size: 12px;
+        }
+
+        .input-area {
+            padding: 16px 24px;
+            background-color: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-btn {
+            background: linear-gradient(135deg, #2b6cb0, #1a4971);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .file-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(43, 108, 176, 0.3);
+        }
+
+        #status {
+            padding: 12px;
+            text-align: center;
+            color: #718096;
+            font-size: 13px;
+            background-color: #edf2f7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="logo">FileSync Pro</span>
+            <span class="status-dot"></span>
+        </div>
+        <div class="file-area" id="fileArea"></div>
+        <div id="status">Connecting to server...</div>
+        <div class="input-area">
+            <button class="file-btn" onclick="document.getElementById('fileInput').click()">Send File</button>
+            <input type="file" id="fileInput" onchange="sendFile()">
+        </div>
+    </div>
+
+    <script>
+        const fileArea = document.getElementById('fileArea');
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+        const statusDot = document.querySelector('.status-dot');
+        let socket;
+
+        function initSocket() {
+            socket = new WebSocket('wss://file-transfer-server.onrender.com');
+            socket.onopen = () => {
+                status.textContent = 'Connected to server';
+                statusDot.style.backgroundColor = '#38a169';
+                console.log('WebSocket connected');
+            };
+            socket.onmessage = (event) => {
+                const messageData = event.data.toString('utf8');
+                console.log('Raw data received:', messageData);
+                try {
+                    const data = JSON.parse(messageData);
+                    if (data.fileName) {
+                        displayFileMessage(data, false);
+                    }
+                } catch (error) {
+                    console.log('Parse error:', error);
+                }
+            };
+            socket.onclose = () => {
+                status.textContent = 'Disconnected from server';
+                statusDot.style.backgroundColor = '#e53e3e';
+                console.log('WebSocket disconnected');
+            };
+            socket.onerror = (error) => {
+                status.textContent = 'Connection error';
+                statusDot.style.backgroundColor = '#e53e3e';
+                console.log('WebSocket error:', error);
+            };
+        }
+
+        function sendFile() {
+            const file = fileInput.files[0];
+            if (!file) return;
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                alert('Server not connected. Please wait or refresh.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const fileData = {
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileContent: e.target.result
+                };
+                socket.send(JSON.stringify(fileData));
+                displayFileMessage(fileData, true);
+                fileInput.value = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function displayFileMessage(data, isSent) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('file-message');
+            messageDiv.classList.add(isSent ? 'sent' : 'received');
+            const sizeKB = (data.fileSize / 1024).toFixed(2);
+            messageDiv.innerHTML = `
+                <a href="${data.fileContent}" download="${data.fileName}" class="file-link">${data.fileName}</a>
+                <span class="file-size">(${sizeKB} KB)</span>
+            `;
+            fileArea.appendChild(messageDiv);
+            fileArea.scrollTop = fileArea.scrollHeight;
+        }
+
+        initSocket();
+    </script>
+</body>
+</html>
