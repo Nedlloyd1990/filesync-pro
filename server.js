@@ -2,24 +2,18 @@ const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
 const path = require('path');
-const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+// Serve static files (e.g., index.html)
 app.use(express.static(path.join(__dirname, '.')));
+
+// Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).send('Server is running');
 });
-
-// Ping to prevent spin-down
-const pingUrl = 'https://filesync-pro.onrender.com/health'; // Your Render URL
-setInterval(() => {
-    axios.get(pingUrl).catch((error) => {
-        console.error('Ping error:', error.message);
-    });
-}, 300000); // Every 5 minutes
 
 wss.on('connection', (ws) => {
     console.log('New client connected');
