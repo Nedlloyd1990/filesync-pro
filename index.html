@@ -115,6 +115,7 @@
             <div class="flex items-center gap-2">
                 <span id="status" class="text-sm"></span>
                 <span id="statusDot" class="w-3 h-3 rounded-full"></span>
+                <button onclick="logout()" class="action-btn bg-red-600 text-white px-4 py-1 rounded-md hover:bg-red-700">Logout</button>
             </div>
         </div>
         <div class="content">
@@ -184,7 +185,18 @@
             return params.get('username');
         }
 
-        function initSocket() {
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        }
+
+        async function initSocket() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+
             socket = new WebSocket('wss://filesync-pro.onrender.com'); // Replace with your Render URL
             currentUsername = getUsernameFromQuery();
             if (!currentUsername) {
@@ -197,13 +209,16 @@
                 status.textContent = 'Connected to server';
                 statusDot.classList.add('bg-green-400');
                 console.log('WebSocket connected');
-                socket.send(JSON.stringify({ type: 'login', username: currentUsername }));
+                socket.send(JSON.stringify({ type: 'login', username: currentUsername, token }));
             };
 
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'userList') {
+                    if (data.type === 'authError') {
+                        alert('Authentication failed. Please log in again.');
+                        logout();
+                    } else if (data.type === 'userList') {
                         allUsers = data.users;
                         updateUserList();
                     } else if (data.type === 'connectionRequest' && data.to === currentUsername) {
