@@ -1,190 +1,165 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileSync Pro - Login/Signup</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(to bottom right, #1e3a8a, #3b82f6);
-            height: 100vh;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .container {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-            padding: 2rem;
-            width: 100%;
-            max-width: 400px;
-        }
-        .input-field {
-            transition: border-color 0.3s ease;
-        }
-        .input-field:focus {
-            border-color: #2563eb;
-            outline: none;
-        }
-        .btn {
-            transition: background-color 0.3s ease, transform 0.2s ease;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-        }
-        .tab {
-            cursor: pointer;
-            padding: 0.5rem;
-            flex: 1;
-            text-align: center;
-            border-bottom: 2px solid transparent;
-        }
-        .tab.active {
-            border-bottom-color: #2563eb;
-            font-weight: 600;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FileSync Pro - Login</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f0f2f5;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .form-section {
+      margin-bottom: 20px;
+    }
+    input, button {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #0088cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #006699;
+    }
+    .toggle-link {
+      color: #0088cc;
+      cursor: pointer;
+      text-align: center;
+      display: block;
+      margin-top: 10px;
+    }
+    .toggle-link:hover {
+      text-decoration: underline;
+    }
+    .error {
+      color: red;
+      font-size: 14px;
+      text-align: center;
+      display: none;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="flex mb-6">
-            <div id="loginTab" class="tab active" onclick="showLogin()">Login</div>
-            <div id="signupTab" class="tab" onclick="showSignup()">Signup</div>
-        </div>
-        <div id="error" class="text-red-500 text-sm mb-4 hidden"></div>
-
-        <!-- Login Form -->
-        <div id="loginForm">
-            <h2 class="text-2xl font-semibold text-center text-gray-800 mb-6">FileSync Pro Login</h2>
-            <div class="mb-4">
-                <label for="loginUsername" class="block text-sm font-medium text-gray-700">Username</label>
-                <input type="text" id="loginUsername" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
-            </div>
-            <div class="mb-6">
-                <label for="loginPassword" class="block text-sm font-medium text-gray-700">Password</label>
-                <input type="password" id="loginPassword" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
-            </div>
-            <button onclick="login()" class="btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Login</button>
-        </div>
-
-        <!-- Signup Form -->
-        <div id="signupForm" class="hidden">
-            <h2 class="text-2xl font-semibold text-center text-gray-800 mb-6">FileSync Pro Signup</h2>
-            <div class="mb-4">
-                <label for="signupEmail" class="block text-sm font-medium text-gray-700">Email</label>
-                <input type="email" id="signupEmail" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
-            </div>
-            <div class="mb-4">
-                <label for="signupUsername" class="block text-sm font-medium text-gray-700">Username</label>
-                <input type="text" id="signupUsername" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
-            </div>
-            <div class="mb-6">
-                <label for="signupPassword" class="block text-sm font-medium text-gray-700">Password</label>
-                <input type="password" id="signupPassword" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
-            </div>
-            <button onclick="signup()" class="btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Signup</button>
-        </div>
+  <h1>FileSync Pro</h1>
+  <div class="container">
+    <div class="form-section" id="loginForm">
+      <h2>Login</h2>
+      <input type="text" id="loginUsername" placeholder="Username" required>
+      <input type="password" id="loginPassword" placeholder="Password" required>
+      <button onclick="login()">Login</button>
+      <p class="toggle-link" onclick="toggleForm()">Need an account? Sign up</p>
+      <p class="error" id="loginError"></p>
     </div>
+    <div class="form-section" id="signupForm" style="display: none;">
+      <h2>Sign Up</h2>
+      <input type="email" id="signupEmail" placeholder="Email" required>
+      <input type="text" id="signupUsername" placeholder="Username" required>
+      <input type="password" id="signupPassword" placeholder="Password (min 6 characters)" required>
+      <button onclick="signup()">Sign Up</button>
+      <p class="toggle-link" onclick="toggleForm()">Already have an account? Login</p>
+      <p class="error" id="signupError"></p>
+    </div>
+  </div>
 
-    <script>
-        function showLogin() {
-            document.getElementById('loginForm').classList.remove('hidden');
-            document.getElementById('signupForm').classList.add('hidden');
-            document.getElementById('loginTab').classList.add('active');
-            document.getElementById('signupTab').classList.remove('active');
-            clearError();
-        }
+  <script>
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    const loginError = document.getElementById('loginError');
+    const signupError = document.getElementById('signupError');
 
-        function showSignup() {
-            document.getElementById('signupForm').classList.remove('hidden');
-            document.getElementById('loginForm').classList.add('hidden');
-            document.getElementById('signupTab').classList.add('active');
-            document.getElementById('loginTab').classList.remove('active');
-            clearError();
-        }
+    function toggleForm() {
+      loginForm.style.display = loginForm.style.display === 'none' ? 'block' : 'none';
+      signupForm.style.display = signupForm.style.display === 'none' ? 'block' : 'none';
+      loginError.style.display = 'none';
+      signupError.style.display = 'none';
+    }
 
-        function clearError() {
-            const error = document.getElementById('error');
-            error.textContent = '';
-            error.classList.add('hidden');
-        }
+    async function login() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      if (!username || !password) {
+        loginError.textContent = 'Please fill in all fields';
+        loginError.style.display = 'block';
+        return;
+      }
 
-        async function login() {
-            const username = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value;
-            const error = document.getElementById('error');
-
-            if (!username || !password) {
-                error.textContent = 'Please enter both username and password';
-                error.classList.remove('hidden');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    localStorage.setItem('token', data.token);
-                    window.location.href = `/index.html?username=${encodeURIComponent(username)}`;
-                } else {
-                    error.textContent = data.message || 'Invalid username or password';
-                    error.classList.remove('hidden');
-                }
-            } catch (err) {
-                error.textContent = 'Error connecting to server';
-                error.classList.remove('hidden');
-            }
-        }
-
-        async function signup() {
-            const email = document.getElementById('signupEmail').value.trim();
-            const username = document.getElementById('signupUsername').value.trim();
-            const password = document.getElementById('signupPassword').value;
-            const error = document.getElementById('error');
-
-            if (!email || !username || !password) {
-                error.textContent = 'Please fill in all fields';
-                error.classList.remove('hidden');
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/signup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, username, password })
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    localStorage.setItem('token', data.token);
-                    window.location.href = `/index.html?username=${encodeURIComponent(username)}`;
-                } else {
-                    error.textContent = data.message || 'Error creating account';
-                    error.classList.remove('hidden');
-                }
-            } catch (err) {
-                error.textContent = 'Error connecting to server';
-                error.classList.remove('hidden');
-            }
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                if (document.getElementById('loginForm').classList.contains('hidden')) {
-                    signup();
-                } else {
-                    login();
-                }
-            }
+      try {
+        const response = await fetch('https://filesync-pro.onrender.com/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
         });
-    </script>
+        const data = await response.json();
+        if (response.ok) {
+          localStorage.setItem('token', data.token);
+          window.location.href = `index.html?username=${encodeURIComponent(username)}`;
+        } else {
+          loginError.textContent = data.error || 'Login failed';
+          loginError.style.display = 'block';
+        }
+      } catch (error) {
+        loginError.textContent = 'Error connecting to server';
+        loginError.style.display = 'block';
+        console.error('Login error:', error);
+      }
+    }
+
+    async function signup() {
+      const email = document.getElementById('signupEmail').value.trim();
+      const username = document.getElementById('signupUsername').value.trim();
+      const password = document.getElementById('signupPassword').value;
+      if (!email || !username || !password) {
+        signupError.textContent = 'Please fill in all fields';
+        signupError.style.display = 'block';
+        return;
+      }
+      if (password.length < 6) {
+        signupError.textContent = 'Password must be at least 6 characters';
+        signupError.style.display = 'block';
+        return;
+      }
+
+      try {
+        const response = await fetch('https://filesync-pro.onrender.com/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, username, password })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          localStorage.setItem('token', data.token);
+          window.location.href = `index.html?username=${encodeURIComponent(username)}`;
+        } else {
+          signupError.textContent = data.error || 'Signup failed';
+          signupError.style.display = 'block';
+        }
+      } catch (error) {
+        signupError.textContent = 'Error connecting to server';
+        signupError.style.display = 'block';
+        console.error('Signup error:', error);
+      }
+    }
+  </script>
 </body>
 </html>
