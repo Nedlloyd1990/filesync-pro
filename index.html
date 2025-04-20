@@ -72,6 +72,10 @@
     .received {
       color: green;
     }
+    .error {
+      color: red;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -100,12 +104,14 @@
         <tbody></tbody>
       </table>
     </div>
+    <p id="error" class="error" style="display: none;"></p>
   </div>
 
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const username = urlParams.get('username');
     let socket;
+    const errorElement = document.getElementById('error');
 
     if (!username || !localStorage.getItem('token')) {
       window.location.href = 'login.html';
@@ -115,6 +121,7 @@
       socket = new WebSocket('wss://filesync-pro.onrender.com');
       socket.onopen = () => {
         console.log('WebSocket connected');
+        errorElement.style.display = 'none';
         socket.send(JSON.stringify({ type: 'auth', username }));
       };
       socket.onmessage = (event) => {
@@ -124,7 +131,7 @@
           userSelect.innerHTML = '<option value="">Select User</option>';
           data.users.forEach(user => {
             if (user.username !== username) {
-７              const option = document.createElement('option');
+              const option = document.createElement('option');
               option.value = user.username;
               option.innerHTML = `<span class="status-dot ${user.online ? 'online' : 'offline'}"></span>${user.username}`;
               userSelect.appendChild(option);
@@ -152,7 +159,17 @@
           updateDownloadedTime(data.fileId, data.downloadedTime);
         }
       };
-      socket.onclose = () => console.log('WebSocket disconnected');
+      socket.onclose = () => {
+        console.log('WebSocket disconnected');
+        errorElement.textContent = 'Error connecting to server. Retrying...';
+        errorElement.style.display = 'block';
+        setTimeout(initializeWebSocket, 5000); // Retry after 5 seconds
+      };
+      socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        errorElement.textContent = 'Error connecting to server';
+        errorElement.style.display = 'block';
+      };
     }
 
     function requestConnection() {
