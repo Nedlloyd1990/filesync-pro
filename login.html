@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileSync Pro - Login</title>
+    <title>FileSync Pro - Login/Signup</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -15,7 +15,7 @@
             align-items: center;
             justify-content: center;
         }
-        .login-container {
+        .container {
             background: white;
             border-radius: 12px;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
@@ -36,51 +36,154 @@
         .btn:hover {
             transform: translateY(-2px);
         }
+        .tab {
+            cursor: pointer;
+            padding: 0.5rem;
+            flex: 1;
+            text-align: center;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            border-bottom-color: #2563eb;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <h2 class="text-2xl font-semibold text-center text-gray-800 mb-6">FileSync Pro Login</h2>
+    <div class="container">
+        <div class="flex mb-6">
+            <div id="loginTab" class="tab active" onclick="showLogin()">Login</div>
+            <div id="signupTab" class="tab" onclick="showSignup()">Signup</div>
+        </div>
         <div id="error" class="text-red-500 text-sm mb-4 hidden"></div>
-        <div class="mb-4">
-            <label for="userid" class="block text-sm font-medium text-gray-700">User ID</label>
-            <input type="text" id="userid" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+
+        <!-- Login Form -->
+        <div id="loginForm">
+            <h2 class="text-2xl font-semibold text-center text-gray-800 mb-6">FileSync Pro Login</h2>
+            <div class="mb-4">
+                <label for="loginUsername" class="block text-sm font-medium text-gray-700">Username</label>
+                <input type="text" id="loginUsername" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+            </div>
+            <div class="mb-6">
+                <label for="loginPassword" class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="loginPassword" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+            </div>
+            <button onclick="login()" class="btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Login</button>
         </div>
-        <div class="mb-6">
-            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-            <input type="password" id="password" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+
+        <!-- Signup Form -->
+        <div id="signupForm" class="hidden">
+            <h2 class="text-2xl font-semibold text-center text-gray-800 mb-6">FileSync Pro Signup</h2>
+            <div class="mb-4">
+                <label for="signupEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" id="signupEmail" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+            </div>
+            <div class="mb-4">
+                <label for="signupUsername" class="block text-sm font-medium text-gray-700">Username</label>
+                <input type="text" id="signupUsername" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+            </div>
+            <div class="mb-6">
+                <label for="signupPassword" class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="signupPassword" class="input-field mt-1 block w-full border border-gray-300 rounded-md p-2" required>
+            </div>
+            <button onclick="signup()" class="btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Signup</button>
         </div>
-        <button onclick="login()" class="btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Login</button>
     </div>
 
     <script>
-        const users = {
-            'user1': 'password1',
-            'user2': 'password2',
-            'user3': 'password3'
-        };
+        function showLogin() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('signupForm').classList.add('hidden');
+            document.getElementById('loginTab').classList.add('active');
+            document.getElementById('signupTab').classList.remove('active');
+            clearError();
+        }
 
-        function login() {
-            const userid = document.getElementById('userid').value.trim();
-            const password = document.getElementById('password').value;
+        function showSignup() {
+            document.getElementById('signupForm').classList.remove('hidden');
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('signupTab').classList.add('active');
+            document.getElementById('loginTab').classList.remove('active');
+            clearError();
+        }
+
+        function clearError() {
+            const error = document.getElementById('error');
+            error.textContent = '';
+            error.classList.add('hidden');
+        }
+
+        async function login() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
             const error = document.getElementById('error');
 
-            if (!userid || !password) {
-                error.textContent = 'Please enter both User ID and Password';
+            if (!username || !password) {
+                error.textContent = 'Please enter both username and password';
                 error.classList.remove('hidden');
                 return;
             }
 
-            if (users[userid] && users[userid] === password) {
-                window.location.href = `/index.html?username=${encodeURIComponent(userid)}`;
-            } else {
-                error.textContent = 'Invalid User ID or Password';
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    window.location.href = `/index.html?username=${encodeURIComponent(username)}`;
+                } else {
+                    error.textContent = data.message || 'Invalid username or password';
+                    error.classList.remove('hidden');
+                }
+            } catch (err) {
+                error.textContent = 'Error connecting to server';
+                error.classList.remove('hidden');
+            }
+        }
+
+        async function signup() {
+            const email = document.getElementById('signupEmail').value.trim();
+            const username = document.getElementById('signupUsername').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const error = document.getElementById('error');
+
+            if (!email || !username || !password) {
+                error.textContent = 'Please fill in all fields';
+                error.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, username, password })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    window.location.href = `/index.html?username=${encodeURIComponent(username)}`;
+                } else {
+                    error.textContent = data.message || 'Error creating account';
+                    error.classList.remove('hidden');
+                }
+            } catch (err) {
+                error.textContent = 'Error connecting to server';
                 error.classList.remove('hidden');
             }
         }
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') login();
+            if (e.key === 'Enter') {
+                if (document.getElementById('loginForm').classList.contains('hidden')) {
+                    signup();
+                } else {
+                    login();
+                }
+            }
         });
     </script>
 </body>
