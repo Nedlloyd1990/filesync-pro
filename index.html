@@ -1,469 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileSync Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            margin: 0;
-            height: 100vh;
-            overflow: hidden;
-        }
-        .main-container {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background: #f8fafc;
-        }
-        .header {
-            background: linear-gradient(to right, #1e3a8a, #3b82f6);
-            color: white;
-            padding: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .content {
-            flex: 1;
-            display: flex;
-            padding: 1rem;
-            gap: 1rem;
-            overflow: hidden;
-        }
-        .table-container {
-            flex: 1;
-            overflow-y: auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-        .user-panel {
-            width: 300px;
-            background: white;
-            border-radius: 8px;
-            padding: 1rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            overflow-y: auto;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        th {
-            background: #f1f5f9;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        .action-btn {
-            transition: background-color 0.3s ease, transform 0.2s ease;
-        }
-        .action-btn:hover {
-            transform: translateY(-2px);
-        }
-        .notification {
-            position: fixed;
-            bottom: 1rem;
-            right: 1rem;
-            background: white;
-            border-radius: 8px;
-            padding: 1rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            display: none;
-        }
-        .user-list-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem;
-            cursor: pointer;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .user-list-item:hover {
-            background: #f1f5f9;
-        }
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-        }
-        .selected-user {
-            background: #e0e7ff;
-            font-weight: 600;
-        }
-        .sent {
-            color: #2563eb;
-            font-weight: 500;
-        }
-        .received {
-            color: #16a34a;
-            font-weight: 500;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FileSync Pro</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f0f2f5;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .user-section, .file-section {
+      margin-bottom: 20px;
+    }
+    select, button, input {
+      padding: 8px;
+      margin: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #0088cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #006699;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+    .online {
+      background-color: #28a745;
+    }
+    .offline {
+      background-color: #dc3545;
+    }
+    .sent {
+      color: blue;
+    }
+    .received {
+      color: green;
+    }
+  </style>
 </head>
 <body>
-    <div class="main-container">
-        <div class="header">
-            <span class="text-xl font-semibold">FileSync Pro - <span id="username"></span></span>
-            <div class="flex items-center gap-2">
-                <span id="status" class="text-sm"></span>
-                <span id="statusDot" class="w-3 h-3 rounded-full"></span>
-                <button onclick="logout()" class="action-btn bg-red-600 text-white px-4 py-1 rounded-md hover:bg-red-700">Logout</button>
-            </div>
-        </div>
-        <div class="content">
-            <div class="table-container">
-                <table class="w-full table-auto border-collapse">
-                    <thead>
-                        <tr>
-                            <th>Direction</th>
-                            <th>File Name</th>
-                            <th>Sent Time</th>
-                            <th>Viewed Time</th>
-                            <th>Downloaded Time</th>
-                            <th>File Size</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="fileTable"></tbody>
-                </table>
-            </div>
-            <div class="user-panel">
-                <h3 class="text-lg font-semibold mb-4">Users</h3>
-                <select id="connectUser" class="w-full border border-gray-300 rounded-md p-2 mb-4">
-                    <option value="">Select a user to connect</option>
-                </select>
-                <button class="action-btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 mb-4" onclick="sendConnectionRequest()">Request Connection</button>
-                <h3 class="text-lg font-semibold mb-4">Connected Users</h3>
-                <div id="userList" class="mb-4"></div>
-                <button class="action-btn w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 mb-4" onclick="document.getElementById('fileInput').click()">Select File</button>
-                <input type="file" id="fileInput" class="hidden" onchange="sendFile()">
-            </div>
-        </div>
+  <h1>FileSync Pro</h1>
+  <div class="container">
+    <div class="user-section">
+      <h2>Connected Users</h2>
+      <select id="userSelect">
+        <option value="">Select User</option>
+      </select>
+      <button onclick="requestConnection()">Request Connection</button>
     </div>
-    <div id="notification" class="notification">
-        <p id="notificationText"></p>
-        <div class="flex gap-2 mt-2">
-            <button id="acceptBtn" class="action-btn bg-green-600 text-white px-4 py-1 rounded-md hover:bg-green-700">Accept</button>
-            <button id="rejectBtn" class="action-btn bg-red-600 text-white px-4 py-1 rounded-md hover:bg-red-700">Reject</button>
-        </div>
+    <div class="file-section">
+      <h2>File Transfer</h2>
+      <input type="file" id="fileInput">
+      <button onclick="sendFile()">Send File</button>
+      <table id="fileTable">
+        <thead>
+          <tr>
+            <th>File Name</th>
+            <th>Status</th>
+            <th>Downloaded Time</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
+  </div>
 
-    <script>
-        const fileTable = document.getElementById('fileTable');
-        const fileInput = document.getElementById('fileInput');
-        const connectUserSelect = document.getElementById('connectUser');
-        const userList = document.getElementById('userList');
-        const status = document.getElementById('status');
-        const statusDot = document.getElementById('statusDot');
-        const usernameSpan = document.getElementById('username');
-        const notification = document.getElementById('notification');
-        const notificationText = document.getElementById('notificationText');
-        const acceptBtn = document.getElementById('acceptBtn');
-        const rejectBtn = document.getElementById('rejectBtn');
-        let socket;
-        let currentUsername;
-        let lastSentMessageId = null;
-        let connectedUsers = [];
-        let allUsers = [];
-        let selectedUser = null;
-        let files = [];
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const username = urlParams.get('username');
+    let socket;
 
-        function generateMessageId() {
-            return Math.random().toString(36).substr(2, 9);
-        }
+    if (!username || !localStorage.getItem('token')) {
+      window.location.href = 'login.html';
+    }
 
-        function getUsernameFromQuery() {
-            const params = new URLSearchParams(window.location.search);
-            return params.get('username');
-        }
-
-        function logout() {
-            localStorage.removeItem('token');
-            window.location.href = '/login.html';
-        }
-
-        async function initSocket() {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                window.location.href = '/login.html';
-                return;
+    function initializeWebSocket() {
+      socket = new WebSocket('wss://filesync-pro.onrender.com');
+      socket.onopen = () => {
+        console.log('WebSocket connected');
+        socket.send(JSON.stringify({ type: 'auth', username }));
+      };
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'userList') {
+          const userSelect = document.getElementById('userSelect');
+          userSelect.innerHTML = '<option value="">Select User</option>';
+          data.users.forEach(user => {
+            if (user.username !== username) {
+７              const option = document.createElement('option');
+              option.value = user.username;
+              option.innerHTML = `<span class="status-dot ${user.online ? 'online' : 'offline'}"></span>${user.username}`;
+              userSelect.appendChild(option);
             }
-
-            socket = new WebSocket('wss://filesync-pro.onrender.com'); // Replace with your Render URL
-            currentUsername = getUsernameFromQuery();
-            if (!currentUsername) {
-                window.location.href = '/login.html';
-                return;
-            }
-            usernameSpan.textContent = currentUsername;
-
-            socket.onopen = () => {
-                status.textContent = 'Connected to server';
-                statusDot.classList.add('bg-green-400');
-                console.log('WebSocket connected');
-                socket.send(JSON.stringify({ type: 'login', username: currentUsername, token }));
-            };
-
-            socket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'authError') {
-                        alert('Authentication failed. Please log in again.');
-                        logout();
-                    } else if (data.type === 'userList') {
-                        allUsers = data.users;
-                        updateUserList();
-                    } else if (data.type === 'connectionRequest' && data.to === currentUsername) {
-                        showConnectionNotification(data);
-                    } else if (data.type === 'connectionResponse' && data.to === currentUsername) {
-                        handleConnectionResponse(data);
-                    } else if (data.type === 'file' && (data.to === currentUsername || data.from === currentUsername) && data.messageId) {
-                        if (data.messageId === lastSentMessageId) {
-                            lastSentMessageId = null;
-                            return;
-                        }
-                        data.downloadedTime = data.downloadedTime || '-';
-                        files.push(data);
-                        if (selectedUser === data.from || selectedUser === data.to) {
-                            displayFileMessage(data, data.from === currentUsername);
-                        }
-                    } else if (data.type === 'downloadNotification' && data.to === currentUsername) {
-                        updateDownloadedTime(data);
-                    }
-                } catch (error) {
-                    console.error('Error parsing message:', error);
-                }
-            };
-
-            socket.onclose = () => {
-                status.textContent = 'Disconnected from server';
-                statusDot.classList.remove('bg-green-400');
-                statusDot.classList.add('bg-red-400');
-                console.log('WebSocket closed');
-            };
-
-            socket.onerror = (error) => {
-                status.textContent = 'Connection error';
-                statusDot.classList.remove('bg-green-400');
-                statusDot.classList.add('bg-red-400');
-                console.error('WebSocket error:', error);
-            };
+          });
         }
-
-        function updateUserList() {
-            connectUserSelect.innerHTML = '<option value="">Select a user to connect</option>';
-            allUsers.forEach(user => {
-                if (user !== currentUsername && !connectedUsers.includes(user)) {
-                    const option = document.createElement('option');
-                    option.value = user;
-                    option.textContent = user;
-                    connectUserSelect.appendChild(option);
-                }
-            });
-
-            userList.innerHTML = '';
-            allUsers.forEach(user => {
-                if (user !== currentUsername) {
-                    const isConnected = connectedUsers.includes(user);
-                    const userItem = document.createElement('div');
-                    userItem.classList.add('user-list-item');
-                    if (selectedUser === user) {
-                        userItem.classList.add('selected-user');
-                    }
-                    userItem.innerHTML = `
-                        <div class="flex items-center">
-                            <span class="status-dot ${isConnected ? 'bg-green-400' : 'bg-red-400'}"></span>
-                            <span>${user}</span>
-                        </div>
-                        ${isConnected ? '' : '<button class="action-btn bg-blue-600 text-white px-2 py-1 rounded-md hover:bg-blue-700" onclick="sendConnectionRequest(\'' + user + '\')">Request</button>'}
-                    `;
-                    userItem.addEventListener('click', () => {
-                        selectUser(user);
-                    });
-                    userList.appendChild(userItem);
-                }
-            });
-        }
-
-        function selectUser(user) {
-            selectedUser = user;
-            fileTable.innerHTML = '';
-            files.forEach(data => {
-                if (data.from === user || data.to === user) {
-                    displayFileMessage(data, data.from === currentUsername);
-                }
-            });
-            updateUserList();
-        }
-
-        function sendConnectionRequest(user) {
-            const recipient = user || connectUserSelect.value;
-            if (!recipient) {
-                alert('Please select a user to connect.');
-                return;
-            }
-            if (!socket || socket.readyState !== WebSocket.OPEN) {
-                alert('Server not connected. Please wait or refresh.');
-                return;
-            }
+        if (data.type === 'connectionRequest') {
+          if (confirm(`Connection request from ${data.from}. Accept?`)) {
             socket.send(JSON.stringify({
-                type: 'connectionRequest',
-                from: currentUsername,
-                to: recipient
+              type: 'connectionResponse',
+              target: data.from,
+              accept: true,
             }));
+          }
         }
-
-        function showConnectionNotification(data) {
-            notificationText.textContent = `${data.from} wants to connect with you. Accept?`;
-            notification.style.display = 'block';
-            acceptBtn.onclick = () => {
-                socket.send(JSON.stringify({
-                    type: 'connectionResponse',
-                    from: currentUsername,
-                    to: data.from,
-                    accepted: true
-                }));
-                connectedUsers.push(data.from);
-                updateUserList();
-                notification.style.display = 'none';
-            };
-            rejectBtn.onclick = () => {
-                socket.send(JSON.stringify({
-                    type: 'connectionResponse',
-                    from: currentUsername,
-                    to: data.from,
-                    accepted: false
-                }));
-                notification.style.display = 'none';
-            };
+        if (data.type === 'connectionResponse') {
+          if (data.accept) {
+            alert(`Connection with ${data.from} established`);
+          }
         }
-
-        function handleConnectionResponse(data) {
-            if (data.accepted) {
-                connectedUsers.push(data.from);
-                updateUserList();
-                alert(`${data.from} accepted your connection request.`);
-            } else {
-                alert(`${data.from} rejected your connection request.`);
-            }
+        if (data.type === 'fileTransfer') {
+          addFileToTable(data.fileId, data.fileName, 'Received ⬅️', data.from);
         }
-
-        function sendFile() {
-            const file = fileInput.files[0];
-            if (!file) return;
-            if (!socket || socket.readyState !== WebSocket.OPEN) {
-                alert('Server not connected. Please wait or refresh.');
-                return;
-            }
-            if (file.size > 5 * 1024 * 1024) {
-                alert('File too large. Max size is 5MB.');
-                return;
-            }
-            if (!selectedUser || !connectedUsers.includes(selectedUser)) {
-                alert('Please select a connected user.');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const fileData = {
-                    fileName: file.name,
-                    fileSize: file.size,
-                    fileContent: e.target.result,
-                    sentTime: new Date().toISOString(),
-                    messageId: generateMessageId(),
-                    from: currentUsername,
-                    to: selectedUser,
-                    downloadedTime: '-'
-                };
-                socket.send(JSON.stringify({
-                    type: 'file',
-                    ...fileData
-                }));
-                files.push(fileData);
-                if (selectedUser === fileData.to || selectedUser === fileData.from) {
-                    displayFileMessage(fileData, true);
-                }
-                lastSentMessageId = fileData.messageId;
-                fileInput.value = '';
-            };
-            reader.readAsDataURL(file);
+        if (data.type === 'fileDownloaded') {
+          updateDownloadedTime(data.fileId, data.downloadedTime);
         }
+      };
+      socket.onclose = () => console.log('WebSocket disconnected');
+    }
 
-        function displayFileMessage(data, isSent) {
-            const row = document.createElement('tr');
-            row.dataset.messageId = data.messageId;
-            const sizeKB = (data.fileSize / 1024).toFixed(2);
-            const viewedTime = new Date().toISOString();
-            const downloadedTime = data.downloadedTime || '-';
-            const direction = isSent ? 'Sent ➡️' : 'Received ⬅️';
-            const directionClass = isSent ? 'sent' : 'received';
-            row.innerHTML = `
-                <td class="${directionClass}">${direction}</td>
-                <td>${data.fileName}</td>
-                <td>${new Date(data.sentTime).toLocaleString()}</td>
-                <td>${new Date(viewedTime).toLocaleString()}</td>
-                <td class="downloaded-time">${downloadedTime === '-' ? '-' : new Date(downloadedTime).toLocaleString()}</td>
-                <td>${sizeKB} KB</td>
-                <td>
-                    <a href="${data.fileContent}" download="${data.fileName}" class="text-blue-600 hover:underline download-link">Download</a>
-                </td>
-            `;
-            fileTable.appendChild(row);
+    function requestConnection() {
+      const target = document.getElementById('userSelect').value;
+      if (target) {
+        socket.send(JSON.stringify({
+          type: 'requestConnection',
+          target,
+        }));
+      } else {
+        alert('Please select a user');
+      }
+    }
 
-            if (!isSent) {
-                const downloadLink = row.querySelector('.download-link');
-                downloadLink.addEventListener('click', () => {
-                    const downloadCell = row.querySelector('.downloaded-time');
-                    if (downloadCell) {
-                        const downloadedTime = new Date().toISOString();
-                        downloadCell.textContent = new Date(downloadedTime).toLocaleString();
-                        if (socket.readyState === WebSocket.OPEN) {
-                            socket.send(JSON.stringify({
-                                type: 'downloadNotification',
-                                from: currentUsername,
-                                to: data.from,
-                                messageId: data.messageId,
-                                downloadedTime: downloadedTime
-                            }));
-                            console.log('Sent downloadNotification:', { messageId: data.messageId, to: data.from });
-                        } else {
-                            console.error('WebSocket not open for downloadNotification');
-                        }
-                    } else {
-                        console.error('Download cell not found');
-                    }
-                });
-            }
-        }
+    function sendFile() {
+      const fileInput = document.getElementById('fileInput');
+      const target = document.getElementById('userSelect').value;
+      if (!fileInput.files[0] || !target) {
+        alert('Please select a file and a user');
+        return;
+      }
+      const file = fileInput.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size exceeds 5MB limit');
+        return;
+      }
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'text/plain'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Invalid file type. Allowed: PDF, JPEG, PNG, TXT');
+        return;
+      }
+      const fileId = Date.now().toString();
+      socket.send(JSON.stringify({
+        type: 'fileTransfer',
+        target,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        fileId,
+      }));
+      addFileToTable(fileId, file.name, 'Sent ➡️', target);
+      fileInput.value = '';
+    }
 
-        function updateDownloadedTime(data) {
-            console.log('Received downloadNotification:', data);
-            const file = files.find(f => f.messageId === data.messageId);
-            if (file) {
-                file.downloadedTime = data.downloadedTime;
-                if (selectedUser === data.from || selectedUser === data.to) {
-                    fileTable.innerHTML = '';
-                    files.forEach(f => {
-                        if (f.from === selectedUser || f.to === selectedUser) {
-                            displayFileMessage(f, f.from === currentUsername);
-                        }
-                    });
-                }
-            } else {
-                console.error('File not found for messageId:', data.messageId);
-            }
-        }
+    function addFileToTable(fileId, fileName, status, target) {
+      const tbody = document.querySelector('#fileTable tbody');
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${fileName}</td>
+        <td class="${status.includes('Sent') ? 'sent' : 'received'}">${status}</td>
+        <td id="time-${fileId}">-</td>
+        <td><button onclick="downloadFile('${fileId}', '${target}')">Download</button></td>
+      `;
+      tbody.appendChild(row);
+    }
 
-        initSocket();
-    </script>
+    function updateDownloadedTime(fileId, time) {
+      const timeCell = document.getElementById(`time-${fileId}`);
+      if (timeCell) {
+        timeCell.textContent = new Date(time).toLocaleString();
+      }
+    }
+
+    function downloadFile(fileId, target) {
+      socket.send(JSON.stringify({
+        type: 'fileDownloaded',
+        fileId,
+        target,
+      }));
+      updateDownloadedTime(fileId, new Date().toISOString());
+    }
+
+    initializeWebSocket();
+  </script>
 </body>
 </html>
