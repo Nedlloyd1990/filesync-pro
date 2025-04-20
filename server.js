@@ -36,72 +36,76 @@ const onlineUsers = new Set();
 // WebSocket Handling
 wss.on('connection', (ws) => {
   ws.on('message', async (message) => {
-    const data = JSON.parse(message);
-    if (data.type === 'auth') {
-      const user = await User.findOne({ username: data.username });
-      if (user) {
-        ws.user = user;
-        onlineUsers.add(user.username);
+    try {
+      const data = JSON.parse(message);
+      if (data.type === 'auth') {
+        const user = await User.findOne({ username: data.username });
+        if (user) {
+          ws.user = user;
+          onlineUsers.add(user.username);
+          broadcastUserList();
+        }
+      }
+      if (data.type === 'requestConnection' && ws.user) {
+        const targetUser = await User.findOne({ username: data.target });
+        if (targetUser) {
+          wss.clients.forEach(client => {
+            if (client.user && client.user.username === data.target) {
+              client.send(JSON.stringify({
+                type: 'connectionRequest',
+                from: ws.user.username,
+              }));
+            }
+          });
+        }
+      }
+      if (data.type === 'connectionResponse' && ws.user) {
+        const targetUser = await User.findOne({ username: data.target });
+        if (targetUser && data.accept) {
+          await User.updateOne({ _id: ws.user._id }, { $addToSet: { connections: targetUser._id } });
+          await User.updateOne({ _id: targetUser._id }, { $addToSet: { connections: ws.user._id } });
+        }
+        wss.clients.forEach(client => {
+          if (client.user && client.user.username === data.target) {
+            client.send(JSON.stringify({
+              type: 'connectionResponse',
+              from: ws.user.username,
+              accept: data.accept,
+            }));
+          }
+        });
         broadcastUserList();
       }
-    }
-    if (data.type === 'requestConnection' && ws.user) {
-      const targetUser = await User.findOne({ username: data.target });
-      if (targetUser) {
-        wss.clients.forEach(client => {
-          if (client.user && client.user.username === data.target) {
-            client.send(JSON.stringify({
-              type: 'connectionRequest',
-              from: ws.user.username,
-            }));
-          }
-        });
-      }
-    }
-    if (data.type === 'connectionResponse' && ws.user) {
-      const targetUser = await User.findOne({ username: data.target });
-      if (targetUser && data.accept) {
-        await User.updateOne({ _id: ws.user._id }, { $addToSet: { connections: targetUser._id } });
-        await User.updateOne({ _id: targetUser._id }, { $addToSet: { connections: ws.user._id } });
-      }
-      wss.clients.forEach(client => {
-        if (client.user && client.user.username === data.target) {
-          client.send(JSON.stringify({
-            type: 'connectionResponse',
-            from: ws.user.username,
-            accept: data.accept,
-          }));
+      if (data.type === 'fileTransfer' && ws.user) {
+        const targetUser = await User.findOne({ username: data.target });
+        if (targetUser) {
+          wss.clients.forEach(client => {
+            if (client.user && client.user.username === data.target) {
+              client.send(JSON.stringify({
+                type: 'fileTransfer',
+                from: ws.user.username,
+                fileName: data.fileName,
+                fileType: data.fileType,
+                fileSize: data.fileSize,
+                fileId: data.fileId,
+              }));
+            }
+          });
         }
-      });
-      broadcastUserList();
-    }
-    if (data.type === 'fileTransfer' && ws.user) {
-      const targetUser = await User.findOne({ username: data.target });
-      if (targetUser) {
+      }
+      if (data.type === 'fileDownloaded' && ws.user) {
         wss.clients.forEach(client => {
           if (client.user && client.user.username === data.target) {
             client.send(JSON.stringify({
-              type: 'fileTransfer',
-              from: ws.user.username,
-              fileName: data.fileName,
-              fileType: data.fileType,
-              fileSize: data.fileSize,
+              type: 'fileDownloaded',
               fileId: data.fileId,
+              downloadedTime: new Date().toISOString(),
             }));
           }
         });
       }
-    }
-    if (data.type === 'fileDownloaded' && ws.user) {
-      wss.clients.forEach(client => {
-        if (client.user && client.user.username === data.target) {
-          client.send(JSON.stringify({
-            type: 'fileDownloaded',
-            fileId: data.fileId,
-            downloadedTime: new Date().toISOString(),
-          }));
-        }
-      });
+    } catch (error) {
+      console.error('WebSocket message error:', error);
     }
   });
 
@@ -111,21 +115,29 @@ wss.on('connection', (ws) => {
       broadcastUserList();
     }
   });
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
 });
 
 // Broadcast user list with online status
 async function broadcastUserList() {
-  const users = await User.find({}, 'username connections');
-  const userList = users.map(user => ({
-    username: user.username,
-    connections: user.connections,
-    online: onlineUsers.has(user.username),
-  }));
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ type: 'userList', users: userList }));
-    }
-  });
+  try {
+    const users = await User.find({}, 'username connections');
+    const userList = users.map(user => ({
+      username: user.username,
+      connections: user.connections,
+      online: onlineUsers.has(user.username),
+    }));
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({ type: 'userList', users: userList }));
+      }
+    });
+  } catch (error) {
+    console.error('Error broadcasting user list:', error);
+  }
 }
 
 // Middleware
@@ -162,6 +174,7 @@ app.post('/signup', [
     const token = jwt.sign({ username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ token });
   } catch (error) {
+    console.error('Signup error:', error);
     res.status(500).json({ error: 'Signup error' });
   }
 });
@@ -176,6 +189,7 @@ app.post('/login', async (req, res) => {
     const token = jwt.sign({ username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ token });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Login error' });
   }
 });
@@ -190,6 +204,7 @@ app.get('/users', authenticateToken, async (req, res) => {
     }));
     res.json(userList);
   } catch (error) {
+    console.error('Users endpoint error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -198,7 +213,7 @@ app.get('/users', authenticateToken, async (req, res) => {
 app.get('/health', (req, res) => res.sendStatus(200));
 
 // Pinger to prevent spin-down
-const pingUrl = 'https://your-app-name.onrender.com/health';
+const pingUrl = 'https://filesync-pro.onrender.com/health';
 setInterval(async () => {
   try {
     await axios.get(pingUrl);
